@@ -3,7 +3,7 @@
 const API_BASE = import.meta.env.VITE_API_URL ?? '';
 
 // Current business — when multi-business pages arrive, this becomes a route param.
-export const BUSINESS_SLUG = 'gemmys';
+export const BUSINESS_SLUG = 'emm-nails';
 
 export interface Slot {
   time: string;
