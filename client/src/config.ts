@@ -4,7 +4,7 @@
 
 export const config = {
   business_name: 'Emm Nails',
-  tagline: 'טקסט תיאור העסק',
+  tagline: 'אומנות. איכות. יוקרה',
   hero_badge: 'סוג העסק',
   phone: '050-1234567',
   whatsapp_number: '972501234567',
