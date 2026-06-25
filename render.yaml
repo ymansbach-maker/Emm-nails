@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: gemmys-api
+    runtime: node
+    rootDir: server
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: "22.14.0"
+      - key: ADMIN_PASSWORD
+        sync: false # set in Render dashboard
+      - key: CORS_ORIGIN
+        sync: false # set to your Vercel URL, e.g. https://gemmys.vercel.app
+      - key: DATA_DIR
+        value: /var/data
+    # NOTE: a persistent disk requires a paid Render plan. On the free tier,
+    # remove the disk block and the DATA_DIR var — the DB will reset on each
+    # deploy/restart. For a real business, attach the disk.
+    disk:
+      name: gemmys-data
+      mountPath: /var/data
+      sizeGB: 1
