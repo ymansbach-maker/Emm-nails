@@ -11,8 +11,6 @@ const MAX_DAYS_AHEAD = config.max_days_ahead;
 // Service names come from config.pricing — the canonical list shared with the server.
 const SERVICE_NAMES = config.pricing.map((p) => p.name);
 
-const AFTER_HOURS_SERVICE = 'שירות אחרי שעות הפעילות';
-
 function serviceDuration(name: string): number {
   return name.includes('זקן') ? 40 : 30;
 }
@@ -181,17 +179,15 @@ export default function BookingSection() {
     }
   };
 
-  const isAfterHours = service === AFTER_HOURS_SERVICE;
-
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!date || (!time && !isAfterHours) || !service || busy) return;
+    if (!date || !time || !service || busy) return;
     setBusy(true);
     setError(null);
     try {
       const { id } = await bookAppointment({
         date,
-        time: isAfterHours ? null : time,
+        time,
         name: name.trim(), phone: phone.trim(), email: email.trim(),
         service, duration,
       });
@@ -200,7 +196,7 @@ export default function BookingSection() {
     } catch (err) {
       const msg = errorText(err);
       setError(msg);
-      if (err instanceof ApiError && err.code === 'slot_taken' && !isAfterHours) {
+      if (err instanceof ApiError && err.code === 'slot_taken') {
         setTime(null);
         setStep('time');
         void loadSlots(date);
@@ -345,59 +341,39 @@ export default function BookingSection() {
                 ))}
               </div>
             )}
-            {/* After-hours option */}
-            <div className="after-hours-booking-option">
-              <p className="after-hours-booking-label">מחפשים שירות מחוץ לשעות הפעילות?</p>
-              <button
-                type="button"
-                className="btn-ghost after-hours-booking-btn"
-                onClick={() => {
-                  handleServiceChange(AFTER_HOURS_SERVICE);
-                  setStep('details');
-                }}
-              >
-                {AFTER_HOURS_SERVICE} ←
-              </button>
-            </div>
             <button type="button" className="btn-ghost" onClick={() => setStep('date')}>
               ← החלפת תאריך
             </button>
           </div>
         )}
 
-        {step === 'details' && date && (time || isAfterHours) && (
+        {step === 'details' && date && time && (
           <form className="details-form" onSubmit={submit}>
             <p className="details-summary">
               {formatHebrewDate(date)}
-              {time && <> · <strong>{time}</strong></>}
+              {' · '}<strong>{time}</strong>
             </p>
 
-            {isAfterHours ? (
-              <div className="after-hours-details-note">
-                <p>הספר יצור איתך קשר לתיאום השעה המדויקת</p>
-              </div>
-            ) : (
-              <>
-                <label className="field" htmlFor="booking-service">
-                  <span>סוג שירות</span>
-                  <select
-                    id="booking-service"
-                    value={service}
-                    onChange={(e) => handleServiceChange(e.target.value)}
-                    required
-                    aria-required="true"
-                  >
-                    <option value="" disabled>בחרו שירות…</option>
-                    {SERVICE_NAMES.filter((s) => s !== AFTER_HOURS_SERVICE).map((s) => (
-                      <option key={s} value={s}>{s}</option>
-                    ))}
-                  </select>
-                </label>
-                {service && (
-                  <p className="duration-hint">משך הטיפול: <strong>{duration}</strong> דקות</p>
-                )}
-              </>
-            )}
+            <>
+              <label className="field" htmlFor="booking-service">
+                <span>סוג שירות</span>
+                <select
+                  id="booking-service"
+                  value={service}
+                  onChange={(e) => handleServiceChange(e.target.value)}
+                  required
+                  aria-required="true"
+                >
+                  <option value="" disabled>בחרו שירות…</option>
+                  {SERVICE_NAMES.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              </label>
+              {service && (
+                <p className="duration-hint">משך הטיפול: <strong>{duration}</strong> דקות</p>
+              )}
+            </>
 
             <label className="field" htmlFor="booking-name">
               <span>שם מלא</span>
@@ -443,13 +419,10 @@ export default function BookingSection() {
                 aria-required="true"
               />
             </label>
-            <button type="submit" className="btn-primary" disabled={busy || (!service && !isAfterHours)}>
+            <button type="submit" className="btn-primary" disabled={busy || !service}>
               {busy ? 'רגע…' : 'אישור הבקשה'}
             </button>
-            <button type="button" className="btn-ghost" onClick={() => {
-              if (isAfterHours) { setService(''); setStep('time'); }
-              else setStep('time');
-            }}>
+            <button type="button" className="btn-ghost" onClick={() => setStep('time')}>
               ← החלפת שעה
             </button>
           </form>
@@ -458,48 +431,30 @@ export default function BookingSection() {
         {step === 'done' && date && (
           <div className="booking-done">
             <div className="done-check" aria-hidden="true">✓</div>
-            {isAfterHours ? (
-              <>
-                <h3>הבקשה התקבלה!</h3>
-                <p>{name.trim()}, בקשתך ל{formatHebrewDate(date)} התקבלה.</p>
-                <p className="done-note">הספר יצור איתך קשר לתיאום השעה המדויקת.</p>
-              </>
-            ) : (
-              <>
-                <h3>התור נקבע!</h3>
-                <p>
-                  {name.trim()}, נתראה ב{formatHebrewDate(date)} בשעה <strong>{time}</strong>.
-                </p>
-                {service && (
-                  <p className="done-note">שירות: {service} · {duration} דקות</p>
-                )}
-              </>
+            <h3>התור נקבע!</h3>
+            <p>
+              {name.trim()}, נתראה ב{formatHebrewDate(date)} בשעה <strong>{time}</strong>.
+            </p>
+            {service && (
+              <p className="done-note">שירות: {service} · {duration} דקות</p>
             )}
             <p className="done-note">אישור נשלח לאימייל {email.trim()}.</p>
 
-            {!isAfterHours && (
-              <div className="booking-payment-options">
-                <p className="booking-payment-label">תשלום</p>
-                <button
-                  type="button"
-                  className="btn-pay-online"
-                  disabled={!paymentEnabled || payRedirectBusy}
-                  onClick={handleOnlinePayment}
-                >
-                  {payRedirectBusy ? 'מחבר לתשלום…' : 'שלם עכשיו אונליין 💳'}
-                  {!paymentEnabled && <span className="coming-soon-badge">בקרוב</span>}
-                </button>
-                <button type="button" className="btn-ghost btn-pay-inshop" onClick={reset}>
-                  שלם במספרה
-                </button>
-              </div>
-            )}
-
-            {isAfterHours && (
-              <button type="button" className="btn-ghost" onClick={reset}>
-                קביעת תור נוסף
+            <div className="booking-payment-options">
+              <p className="booking-payment-label">תשלום</p>
+              <button
+                type="button"
+                className="btn-pay-online"
+                disabled={!paymentEnabled || payRedirectBusy}
+                onClick={handleOnlinePayment}
+              >
+                {payRedirectBusy ? 'מחבר לתשלום…' : 'שלם עכשיו אונליין 💳'}
+                {!paymentEnabled && <span className="coming-soon-badge">בקרוב</span>}
               </button>
-            )}
+              <button type="button" className="btn-ghost btn-pay-inshop" onClick={reset}>
+                שלם במספרה
+              </button>
+            </div>
           </div>
         )}
       </div>
