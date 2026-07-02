@@ -50,16 +50,22 @@ export default function Contact() {
       <div className="section-head">
         <h2 className="section-title">צרו קשר</h2>
       </div>
-      <div className="contact-list">
-        {CONTACTS.map((c) => (
-          <a key={c.href} href={c.href} className="contact-row" target="_blank" rel="noopener noreferrer">
-            <div className="contact-text">
-              <span className="contact-label">{c.label}</span>
-              <span className="contact-value">{c.value}</span>
-            </div>
-            <div className="contact-icon">{c.icon}</div>
-          </a>
-        ))}
+      <div className="contact-columns">
+        <div className="contact-info-box">
+          <span className="contact-info-name">{config.business_name}</span>
+          <p className="contact-info-tagline">{config.tagline}</p>
+        </div>
+        <div className="contact-details-col">
+          {CONTACTS.map((c) => (
+            <a key={c.href} href={c.href} className="contact-row" target="_blank" rel="noopener noreferrer">
+              <div className="contact-icon">{c.icon}</div>
+              <div className="contact-text">
+                <span className="contact-label">{c.label}</span>
+                <span className="contact-value">{c.value}</span>
+              </div>
+            </a>
+          ))}
+        </div>
       </div>
     </section>
   );

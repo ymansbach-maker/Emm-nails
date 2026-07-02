@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { config } from '../config';
 import Hero from '../components/Hero';
+import SectionDivider from '../components/SectionDivider';
 import Gallery from '../components/Gallery';
 import Pricing from '../components/Pricing';
 import BookingSection from '../components/BookingSection';
@@ -33,10 +34,12 @@ export default function Home() {
       </nav>
       <main className="home">
       <Hero />
+      <SectionDivider fill="var(--color-surface)" />
       <Gallery />
       <Pricing />
       <BookingSection />
       <ReviewsSection />
+      <SectionDivider fill="var(--color-surface)" />
       <Contact />
       <footer className="footer">
         <span className="footer-logo">{config.business_name}</span>

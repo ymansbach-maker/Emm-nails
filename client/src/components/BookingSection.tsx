@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { getAvailability, bookAppointment, joinWaitingList, getPaymentConfig, createPaymentSession, ApiError, Slot } from '../api';
 import {
   todayInIsrael, addDays, dayOfWeek,
@@ -249,6 +249,15 @@ export default function BookingSection() {
       </div>
 
       <div className="booking-card">
+        <div className="booking-hours-badge">
+          <span className="booking-hours-badge-icon" aria-hidden="true">🕐</span>
+          {config.hours_display.map((line, i) => (
+            <React.Fragment key={line}>
+              {i > 0 && <span className="hero-hours-sep" aria-hidden="true">·</span>}
+              <span>{line}</span>
+            </React.Fragment>
+          ))}
+        </div>
         {step !== 'done' && (
           <ol className="booking-steps" aria-label="שלבי הזמנה">
             {['צוות', 'תאריך', 'שעה', 'פרטים'].map((label, i) => (
@@ -274,7 +283,7 @@ export default function BookingSection() {
                 className={`worker-card${worker === w ? ' worker-card--selected' : ''}`}
                 onClick={() => pickWorker(w)}
               >
-                <span className="worker-card-sparkle" aria-hidden="true">✨</span>
+                <span className="worker-card-avatar" aria-hidden="true">{w[0]}</span>
                 <span className="worker-card-name">{w}</span>
               </button>
             ))}

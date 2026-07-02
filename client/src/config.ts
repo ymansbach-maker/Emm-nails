@@ -26,13 +26,13 @@ export const config = {
   max_days_ahead: 30,
 
   colors: {
-    bg:         '#0d0d0d',
-    surface:    '#1a1a2e',
-    border:     '#2d1b69',
-    primary:    '#7B2FBE',
-    secondary:  '#C084FC',
-    text:       '#F5F0FF',
-    text_muted: '#9d8ec7',
+    bg:         '#12091e',
+    surface:    '#1e1133',
+    border:     '#3d2060',
+    primary:    '#9b59d0',
+    secondary:  '#d4a5f5',
+    text:       '#f5eeff',
+    text_muted: '#b89fd4',
   },
 
   pricing: [

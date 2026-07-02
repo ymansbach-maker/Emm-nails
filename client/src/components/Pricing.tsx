@@ -4,14 +4,13 @@ export default function Pricing() {
   return (
     <section className="section pricing reveal" id="pricing">
       <div className="section-head">
-        <h2 className="section-title">מחירון</h2>
+        <h2 className="section-title">מחירון <span aria-hidden="true">✨</span></h2>
       </div>
-      <div className="pricing-list">
+      <div className="pricing-grid">
         {config.pricing.map((s, i) => (
-          <div className="pricing-row" key={i}>
+          <div className="pricing-card" key={i}>
             <span className="pricing-name">{s.name}</span>
-            <span className="pricing-dots" aria-hidden="true" />
-            <span className="pricing-price">₪{s.price}</span>
+            <span className="pricing-price-pill">₪{s.price}</span>
           </div>
         ))}
       </div>

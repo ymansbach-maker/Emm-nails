@@ -114,7 +114,7 @@ export default function ReviewsSection() {
   const visible = showAll ? reviews : reviews.slice(0, 3);
 
   return (
-    <section className="section reveal" id="reviews">
+    <section className="section reviews reveal" id="reviews">
       <div className="section-head">
         <p className="section-kicker">מה אומרים הלקוחות</p>
         <h2 className="section-title">מה אומרות הלקוחות</h2>
@@ -129,6 +129,7 @@ export default function ReviewsSection() {
           <div className="rv-grid">
             {visible.map((rv) => (
               <div key={rv.id} className="rv-card">
+                <span className="rv-quote-mark" aria-hidden="true">&ldquo;</span>
                 <Stars rating={rv.rating} />
                 {rv.text && <p className="rv-text">{rv.text}</p>}
                 <span className="rv-name">{rv.name}</span>
