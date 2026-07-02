@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import db, { isUniqueViolation } from '../db.js';
-import { MAX_DAYS_AHEAD, SLOT_MINUTES, WORKING_HOURS, BREAKS, SERVICES } from '../config.js';
+import { MAX_DAYS_AHEAD, SLOT_MINUTES, WORKING_HOURS, BREAKS, SERVICES, WORKERS } from '../config.js';
 import { isValidDateString, isValidTimeString, nowInIsrael, slotsForDate, addDays, dayOfWeek } from '../time.js';
 import { sendConfirmationEmail } from '../email.js';
 
@@ -12,12 +12,12 @@ function toMins(hhmm) {
 }
 
 const getBusiness = db.prepare('SELECT id, slug, name FROM businesses WHERE slug = ?');
-const getTakenAppts = db.prepare('SELECT time, duration FROM appointments WHERE business_id = ? AND date = ?');
-const getBlocks = db.prepare('SELECT time FROM blocks WHERE business_id = ? AND date = ?');
+const getTakenAppts = db.prepare('SELECT time, duration FROM appointments WHERE business_id = ? AND date = ? AND worker = ?');
+const getBlocks = db.prepare('SELECT time FROM blocks WHERE business_id = ? AND date = ? AND worker = ?');
 const AFTER_HOURS_SERVICE = 'שירות אחרי שעות הפעילות';
 
 const insertAppointment = db.prepare(
-  'INSERT INTO appointments (business_id, date, time, name, phone, email, service, duration, is_after_hours) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+  'INSERT INTO appointments (business_id, date, time, name, phone, email, service, duration, is_after_hours, worker) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
 );
 
 function loadBusiness(req, res, next) {
@@ -36,20 +36,23 @@ router.get('/info', (req, res) => {
 // Availability for a single date. A slot is unavailable if any existing appointment
 // (with its own duration) overlaps the slot's window [T, T+SLOT_MINUTES).
 router.get('/availability', (req, res) => {
-  const { date } = req.query;
+  const { date, worker } = req.query;
   if (!isValidDateString(date)) {
     return res.status(400).json({ error: 'invalid_date' });
+  }
+  if (!WORKERS.includes(worker)) {
+    return res.status(400).json({ error: 'invalid_worker' });
   }
   const now = nowInIsrael();
   if (date < now.date || date > addDays(now.date, MAX_DAYS_AHEAD)) {
     return res.json({ date, slots: [] });
   }
 
-  const blocks = getBlocks.all(req.business.id, date).map((r) => r.time);
+  const blocks = getBlocks.all(req.business.id, date, worker).map((r) => r.time);
   const wholeDayBlocked = blocks.includes('');
   const blocked = new Set(blocks);
   // After-hours appointments have no specific time — exclude them from slot blocking.
-  const takenAppts = getTakenAppts.all(req.business.id, date).filter((a) => a.time !== null);
+  const takenAppts = getTakenAppts.all(req.business.id, date, worker).filter((a) => a.time !== null);
 
   const slots = slotsForDate(date).map((slotTime) => {
     const slotStart = toMins(slotTime);
@@ -77,9 +80,10 @@ const PHONE_RE = /^0\d{1,2}-?\d{7}$/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 router.post('/book', (req, res) => {
-  const { date, time, name, phone, email, service, duration } = req.body ?? {};
+  const { date, time, name, phone, email, service, duration, worker } = req.body ?? {};
 
   if (!isValidDateString(date)) return res.status(400).json({ error: 'invalid_date' });
+  if (!WORKERS.includes(worker)) return res.status(400).json({ error: 'invalid_worker' });
 
   const cleanName = String(name ?? '').trim();
   const cleanPhone = String(phone ?? '').replace(/[\s-]/g, '');
@@ -101,7 +105,7 @@ router.post('/book', (req, res) => {
 
     try {
       const result = insertAppointment.run(
-        req.business.id, date, null, cleanName, cleanPhone, cleanEmail, cleanService, 30, 1
+        req.business.id, date, null, cleanName, cleanPhone, cleanEmail, cleanService, 30, 1, worker
       );
       res.status(201).json({ id: result.lastInsertRowid, date, time: null, name: cleanName });
     } catch (err) {
@@ -142,13 +146,13 @@ router.post('/book', (req, res) => {
     }
   }
 
-  const blocks = getBlocks.all(req.business.id, date).map((r) => r.time);
+  const blocks = getBlocks.all(req.business.id, date, worker).map((r) => r.time);
   if (blocks.includes('') || blocks.includes(time)) {
     return res.status(409).json({ error: 'slot_taken' });
   }
 
   // Check no existing appointment overlaps [time, time+duration).
-  const existingAppts = getTakenAppts.all(req.business.id, date).filter((a) => a.time !== null);
+  const existingAppts = getTakenAppts.all(req.business.id, date, worker).filter((a) => a.time !== null);
   const hasOverlap = existingAppts.some((a) => {
     const aStart = toMins(a.time);
     const aEnd = aStart + (a.duration ?? SLOT_MINUTES);
@@ -158,10 +162,10 @@ router.post('/book', (req, res) => {
 
   try {
     const result = insertAppointment.run(
-      req.business.id, date, time, cleanName, cleanPhone, cleanEmail, cleanService, dur, 0
+      req.business.id, date, time, cleanName, cleanPhone, cleanEmail, cleanService, dur, 0, worker
     );
     res.status(201).json({ id: result.lastInsertRowid, date, time, name: cleanName });
-    sendConfirmationEmail({ email: cleanEmail, name: cleanName, date, time })
+    sendConfirmationEmail({ email: cleanEmail, name: cleanName, date, time, worker })
       .catch((err) => console.error('Confirmation email failed:', err));
   } catch (err) {
     if (isUniqueViolation(err)) {

@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useEffect, useState } from 'react';
-import { config } from '../config';
+import { config, WORKERS } from '../config';
 import {
   adminLogin, adminGetAppointments, adminDeleteAppointment,
   adminPatchAppointmentDuration, adminPatchAppointmentNotes, adminPatchAppointmentTime,
@@ -68,17 +68,19 @@ function workDaysOfWeek(ws: string): string[] {
 const SERVICE_NAMES = config.pricing.map((p) => p.name);
 
 const DEFAULT_COLORS: Record<string, string> = {
-  'תספורת גבר / נוער':            '#3b82f6',
-  'תספורת + זקן':                  '#ef4444',
-  'גלח + זקן':                      '#8b5cf6',
-  'תספורת מספריים':                '#6b7280',
-  'תספורת ילדים עד גיל 12':        '#10b981',
-  'תספורת לחייל בסדיר':            '#f59e0b',
-  'תספורת לחייל בסדיר כולל זקן':  '#f97316',
-  'מסגרת + זקן':                    '#e11d48',
-  'סידור זקן':                      '#a855f7',
-  'מייקאובר משיער ארוך לקצר':      '#06b6d4',
-  'שירות אחרי שעות הפעילות':      '#64748b',
+  "לק ג'ל על ציפורן טבעית":     '#7B2FBE',
+  "לק ג'ל + מבנה אנטומי":        '#C084FC',
+  "לק ג'ל פרנץ'":                 '#F472B6',
+  "הסרת לק ג'ל בלבד":            '#6B7280',
+  "הסרת לק ג'ל + טיפול חדש":    '#9333EA',
+  "בנייה ראשונה בג'ל":           '#DB2777',
+  "מילוי בנייה בג'ל":            '#A855F7',
+  'תיקון ציפורן שבורה':          '#F59E0B',
+  'קישוט פשוט (לאצבע)':          '#22D3EE',
+  'קישוט מורכב (לאצבע)':         '#10B981',
+  "פדיקור + לק ג'ל":             '#EC4899',
+  "לק ג'ל ברגליים":              '#8B5CF6',
+  'שירות אחרי שעות הפעילות':    '#64748B',
 };
 
 function resolvedColor(service: string | null | undefined, colors: Record<string, string>): string {
@@ -292,6 +294,7 @@ function WeeklyView({
                       <span className="cal-appt-name">{appt.name}</span>
                       {appt.phone && <span className="cal-appt-phone" dir="ltr">{appt.phone}</span>}
                       {appt.service && !appt.is_personal && <span className="cal-appt-service">{appt.service}</span>}
+                      <span className="cal-appt-worker">{appt.worker}</span>
                     </button>
                   )}
                   {block && (
@@ -683,6 +686,7 @@ function AddAppointmentModal({ onClose, onCreated }: AddAppointmentModalProps) {
   const [service, setService] = useState('');
   const [isPersonal, setIsPersonal] = useState(false);
   const [duration, setDuration] = useState(30);
+  const [worker, setWorker] = useState<string>(WORKERS[0]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -691,17 +695,13 @@ function AddAppointmentModal({ onClose, onCreated }: AddAppointmentModalProps) {
   const handleServiceChange = (val: string) => {
     setService(val);
     if (!isPersonal) {
-      setDuration(val.includes('זקן') ? 40 : 30);
+      setDuration(30);
     }
   };
 
   const handlePersonalToggle = (checked: boolean) => {
     setIsPersonal(checked);
-    if (checked) {
-      setDuration(30);
-    } else if (service) {
-      setDuration(service.includes('זקן') ? 40 : 30);
-    }
+    setDuration(30);
   };
 
   const submit = async (e: React.FormEvent) => {
@@ -719,6 +719,7 @@ function AddAppointmentModal({ onClose, onCreated }: AddAppointmentModalProps) {
         service: isPersonal ? (service || null) : service,
         duration,
         is_personal: isPersonal,
+        worker,
       });
       onCreated();
       onClose();
@@ -770,6 +771,13 @@ function AddAppointmentModal({ onClose, onCreated }: AddAppointmentModalProps) {
             <select value={time} onChange={(e) => setTime(e.target.value)} required>
               <option value="">בחר שעה…</option>
               {availableSlots.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </label>
+
+          <label className="field">
+            <span>צוות *</span>
+            <select value={worker} onChange={(e) => setWorker(e.target.value)} required>
+              {WORKERS.map((w) => <option key={w} value={w}>{w}</option>)}
             </select>
           </label>
 
@@ -917,8 +925,11 @@ export default function Admin() {
     return idx >= 0 ? idx : 0;
   });
 
+  const [workerFilter, setWorkerFilter] = useState<'all' | string>('all');
+
   const [blockDate, setBlockDate] = useState(todayInIsrael());
   const [blockTime, setBlockTime] = useState('');
+  const [blockWorker, setBlockWorker] = useState<'both' | string>('both');
   const [blockBusy, setBlockBusy] = useState(false);
   const [waitingList, setWaitingList] = useState<WaitingListEntry[]>([]);
   const [selectedAppt, setSelectedAppt] = useState<Appointment | null>(null);
@@ -958,8 +969,15 @@ export default function Admin() {
     if (blockBusy) return;
     setBlockBusy(true);
     setError(null);
-    try { await adminCreateBlock(blockDate, blockTime); void refresh(); }
-    catch (err) {
+    try {
+      if (blockWorker === 'both') {
+        await adminCreateBlock(blockDate, blockTime, 'Emmy');
+        await adminCreateBlock(blockDate, blockTime, 'Noa');
+      } else {
+        await adminCreateBlock(blockDate, blockTime, blockWorker);
+      }
+      void refresh();
+    } catch (err) {
       if (err instanceof ApiError && err.code === 'already_blocked') setError('המועד הזה כבר חסום.');
       else setError('החסימה נכשלה. נסו שוב.');
     } finally {
@@ -1012,9 +1030,12 @@ export default function Admin() {
     setMobileDay(idx >= 0 ? idx : 0);
   };
 
-  const visibleAppts = calView === 'week'
+  const visibleAppts = (calView === 'week'
     ? appointments.filter((a) => days.includes(a.date))
-    : appointments.filter((a) => a.date.startsWith(monthYM));
+    : appointments.filter((a) => a.date.startsWith(monthYM))
+  ).filter((a) => workerFilter === 'all' || a.worker === workerFilter);
+
+  const visibleBlocks = blocks.filter((b) => workerFilter === 'all' || b.worker === workerFilter);
 
   const starLabel = (r: Review) => '★'.repeat(r.rating) + '☆'.repeat(5 - r.rating);
 
@@ -1115,6 +1136,21 @@ export default function Admin() {
             <button type="button" className="btn-ghost cal-today-btn" onClick={goToday}>היום</button>
           </div>
           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <div className="cal-worker-filter">
+              <button
+                type="button"
+                className={`cal-worker-btn${workerFilter === 'all' ? ' active' : ''}`}
+                onClick={() => setWorkerFilter('all')}
+              >הכל</button>
+              {WORKERS.map((w) => (
+                <button
+                  key={w}
+                  type="button"
+                  className={`cal-worker-btn${workerFilter === w ? ' active' : ''}`}
+                  onClick={() => setWorkerFilter(w)}
+                >{w}</button>
+              ))}
+            </div>
             <button
               type="button"
               className="btn-primary"
@@ -1142,7 +1178,7 @@ export default function Admin() {
           <WeeklyView
             days={days}
             appointments={visibleAppts}
-            blocks={blocks}
+            blocks={visibleBlocks}
             mobileDay={mobileDay}
             colors={serviceColors}
             onMobileDayChange={setMobileDay}
@@ -1181,13 +1217,20 @@ export default function Admin() {
               {slotsFor(blockDate).map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
           </label>
+          <label className="field">
+            <span>צוות</span>
+            <select value={blockWorker} onChange={(e) => setBlockWorker(e.target.value)}>
+              <option value="both">שני הצוות</option>
+              {WORKERS.map((w) => <option key={w} value={w}>{w}</option>)}
+            </select>
+          </label>
           <button type="submit" className="btn-primary" disabled={blockBusy}>{blockBusy ? 'חוסם…' : 'חסימה'}</button>
         </form>
         {blocks.length > 0 && (
           <ul className="block-list">
             {blocks.map((b) => (
               <li key={b.id}>
-                <span>{formatHebrewDate(b.date)}{b.time ? ` · ${b.time}` : ' · כל היום'}</span>
+                <span>{formatHebrewDate(b.date)}{b.time ? ` · ${b.time}` : ' · כל היום'} · {b.worker}</span>
                 <button type="button" className="btn-ghost" onClick={() => removeBlock(b)}>שחרור</button>
               </li>
             ))}

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import db, { isUniqueViolation } from '../db.js';
-import { DEFAULT_BUSINESS, SERVICES } from '../config.js';
+import { DEFAULT_BUSINESS, SERVICES, WORKERS } from '../config.js';
 import { verifyPassword, issueToken, requireAdmin } from '../auth.js';
 import { isValidDateString, isValidTimeString, nowInIsrael, slotsForDate } from '../time.js';
 import { sendCancellationEmail } from '../email.js';
@@ -45,10 +45,10 @@ function businessId() {
 }
 
 const listByDate = db.prepare(
-  'SELECT id, date, time, name, phone, email, service, duration, notes, is_personal, is_after_hours, paid, created_at FROM appointments WHERE business_id = ? AND date = ? ORDER BY time'
+  'SELECT id, date, time, name, phone, email, service, duration, notes, is_personal, is_after_hours, paid, worker, created_at FROM appointments WHERE business_id = ? AND date = ? ORDER BY time'
 );
 const listUpcoming = db.prepare(
-  'SELECT id, date, time, name, phone, email, service, duration, notes, is_personal, is_after_hours, paid, created_at FROM appointments WHERE business_id = ? AND date >= ? ORDER BY date, time'
+  'SELECT id, date, time, name, phone, email, service, duration, notes, is_personal, is_after_hours, paid, worker, created_at FROM appointments WHERE business_id = ? AND date >= ? ORDER BY date, time'
 );
 
 router.get('/appointments', (req, res) => {
@@ -106,9 +106,10 @@ router.patch('/appointments/:id', (req, res) => {
 // Admin manually creates an appointment (no confirmation email).
 router.post('/appointments', (req, res) => {
   const bid = businessId();
-  const { name, phone, date, time, service, duration, is_personal } = req.body ?? {};
+  const { name, phone, date, time, service, duration, is_personal, worker } = req.body ?? {};
 
   if (!isValidDateString(date)) return res.status(400).json({ error: 'invalid_date' });
+  if (!WORKERS.includes(worker)) return res.status(400).json({ error: 'invalid_worker' });
 
   const cleanName = String(name ?? '').trim();
   if (cleanName.length < 1) return res.status(400).json({ error: 'invalid_name' });
@@ -125,18 +126,13 @@ router.post('/appointments', (req, res) => {
   if (!isValidTimeString(time)) return res.status(400).json({ error: 'invalid_time' });
   if (!slotsForDate(date).includes(time)) return res.status(400).json({ error: 'invalid_time' });
 
-  // Duration: manual for personal, auto by service otherwise
-  let dur = 30;
-  if (isPersonal) {
-    dur = Math.max(10, Math.min(60, Number(duration) || 30));
-  } else if (cleanService) {
-    dur = cleanService.includes('זקן') ? 40 : 30;
-  }
+  // Duration: manual for personal, fixed otherwise
+  const dur = isPersonal ? Math.max(10, Math.min(60, Number(duration) || 30)) : 30;
 
-  // Check for time conflicts with existing timed appointments
+  // Check for time conflicts with existing timed appointments for the same worker
   const existingAppts = db.prepare(
-    'SELECT time, duration FROM appointments WHERE business_id = ? AND date = ? AND time IS NOT NULL'
-  ).all(bid, date);
+    'SELECT time, duration FROM appointments WHERE business_id = ? AND date = ? AND worker = ? AND time IS NOT NULL'
+  ).all(bid, date, worker);
 
   const apptStart = toMins(time);
   const apptEnd = apptStart + dur;
@@ -149,8 +145,8 @@ router.post('/appointments', (req, res) => {
 
   try {
     const result = db.prepare(
-      'INSERT INTO appointments (business_id, date, time, name, phone, service, duration, is_personal) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-    ).run(bid, date, time, cleanName, cleanPhone, cleanService, dur, isPersonal);
+      'INSERT INTO appointments (business_id, date, time, name, phone, service, duration, is_personal, worker) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    ).run(bid, date, time, cleanName, cleanPhone, cleanService, dur, isPersonal, worker);
     res.status(201).json({ id: result.lastInsertRowid, date, time, name: cleanName });
   } catch (err) {
     if (isUniqueViolation(err)) return res.status(409).json({ error: 'slot_taken' });
@@ -171,24 +167,25 @@ router.patch('/appointments/:id/notes', (req, res) => {
 
 router.get('/blocks', (req, res) => {
   const rows = db
-    .prepare('SELECT id, date, time FROM blocks WHERE business_id = ? AND date >= ? ORDER BY date, time')
+    .prepare('SELECT id, date, time, worker FROM blocks WHERE business_id = ? AND date >= ? ORDER BY date, time')
     .all(businessId(), nowInIsrael().date);
   res.json({ blocks: rows });
 });
 
-// Block a single slot (time given) or a whole date (time omitted/empty).
+// Block a single slot (time given) or a whole date (time omitted/empty) for one worker.
 router.post('/blocks', (req, res) => {
-  const { date } = req.body ?? {};
+  const { date, worker } = req.body ?? {};
   const time = req.body?.time || '';
   if (!isValidDateString(date)) return res.status(400).json({ error: 'invalid_date' });
+  if (!WORKERS.includes(worker)) return res.status(400).json({ error: 'invalid_worker' });
   if (time !== '' && (!isValidTimeString(time) || !slotsForDate(date).includes(time))) {
     return res.status(400).json({ error: 'invalid_time' });
   }
   try {
     const result = db
-      .prepare('INSERT INTO blocks (business_id, date, time) VALUES (?, ?, ?)')
-      .run(businessId(), date, time);
-    res.status(201).json({ id: result.lastInsertRowid, date, time });
+      .prepare('INSERT INTO blocks (business_id, date, time, worker) VALUES (?, ?, ?, ?)')
+      .run(businessId(), date, time, worker);
+    res.status(201).json({ id: result.lastInsertRowid, date, time, worker });
   } catch (err) {
     if (isUniqueViolation(err)) {
       return res.status(409).json({ error: 'already_blocked' });

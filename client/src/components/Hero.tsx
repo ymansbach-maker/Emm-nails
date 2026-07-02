@@ -11,7 +11,8 @@ export default function Hero() {
       <div className="hero-bg" aria-hidden="true" />
       <div className="hero-content">
         <h1 className="sr-only">{config.business_name}</h1>
-        <img src="/images/logo.png" alt="לוגו Bensi Barbershop" className="hero-logo" aria-hidden="true" />
+        <img src="/images/logo.png" alt={`לוגו ${config.business_name}`} className="hero-logo" aria-hidden="true" />
+        <p className="hero-badge">{config.hero_badge}</p>
         <p className="hero-sub">{config.tagline}</p>
         <button className="btn-primary hero-cta" onClick={scrollToBooking}>
           קבע תור

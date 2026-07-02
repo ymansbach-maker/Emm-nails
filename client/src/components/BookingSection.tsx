@@ -4,18 +4,14 @@ import {
   todayInIsrael, addDays, dayOfWeek,
   formatHebrewDate, HEBREW_DAY_LETTERS, HEBREW_MONTHS,
 } from '../dates';
-import { config } from '../config';
+import { config, WORKERS } from '../config';
 
 const MAX_DAYS_AHEAD = config.max_days_ahead;
 
 // Service names come from config.pricing — the canonical list shared with the server.
 const SERVICE_NAMES = config.pricing.map((p) => p.name);
 
-function serviceDuration(name: string): number {
-  return name.includes('זקן') ? 40 : 30;
-}
-
-type Step = 'date' | 'time' | 'details' | 'done';
+type Step = 'worker' | 'date' | 'time' | 'details' | 'done';
 
 const ERROR_MESSAGES: Record<string, string> = {
   slot_taken: 'התור הזה בדיוק נתפס. בחרו שעה אחרת.',
@@ -108,7 +104,8 @@ function Calendar({ selected, onSelect }: CalendarProps) {
 // --- Wizard ---
 
 export default function BookingSection() {
-  const [step, setStep] = useState<Step>('date');
+  const [step, setStep] = useState<Step>('worker');
+  const [worker, setWorker] = useState<string | null>(null);
   const [date, setDate] = useState<string | null>(null);
   const [slots, setSlots] = useState<Slot[] | null>(null);
   const [time, setTime] = useState<string | null>(null);
@@ -134,11 +131,11 @@ export default function BookingSection() {
     void getPaymentConfig().then((cfg) => setPaymentEnabled(cfg.paymentEnabled)).catch(() => {});
   }, []);
 
-  const loadSlots = useCallback(async (d: string) => {
+  const loadSlots = useCallback(async (d: string, w: string) => {
     setSlots(null);
     setError(null);
     try {
-      const res = await getAvailability(d);
+      const res = await getAvailability(d, w);
       setSlots(res.slots);
     } catch (err) {
       setError(errorText(err));
@@ -146,8 +143,13 @@ export default function BookingSection() {
   }, []);
 
   useEffect(() => {
-    if (date && step === 'time') void loadSlots(date);
-  }, [date, step, loadSlots]);
+    if (date && worker && step === 'time') void loadSlots(date, worker);
+  }, [date, worker, step, loadSlots]);
+
+  const pickWorker = (w: string) => {
+    setWorker(w);
+    setStep('date');
+  };
 
   const pickDate = (d: string) => {
     setDate(d);
@@ -160,7 +162,7 @@ export default function BookingSection() {
 
   const handleServiceChange = (val: string) => {
     setService(val);
-    setDuration(serviceDuration(val));
+    setDuration(30);
   };
 
   const joinWaiting = async (e: React.FormEvent) => {
@@ -181,7 +183,7 @@ export default function BookingSection() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!date || !time || !service || busy) return;
+    if (!date || !time || !service || !worker || busy) return;
     setBusy(true);
     setError(null);
     try {
@@ -189,17 +191,17 @@ export default function BookingSection() {
         date,
         time,
         name: name.trim(), phone: phone.trim(), email: email.trim(),
-        service, duration,
+        service, duration, worker,
       });
       setAppointmentId(id);
       setStep('done');
     } catch (err) {
       const msg = errorText(err);
       setError(msg);
-      if (err instanceof ApiError && err.code === 'slot_taken') {
+      if (err instanceof ApiError && err.code === 'slot_taken' && worker) {
         setTime(null);
         setStep('time');
-        void loadSlots(date);
+        void loadSlots(date, worker);
       }
     } finally {
       setBusy(false);
@@ -207,7 +209,8 @@ export default function BookingSection() {
   };
 
   const reset = () => {
-    setStep('date');
+    setStep('worker');
+    setWorker(null);
     setDate(null);
     setTime(null);
     setService('');
@@ -237,18 +240,18 @@ export default function BookingSection() {
 
   const availableSlots = useMemo(() => slots?.filter((s) => s.available) ?? [], [slots]);
 
-  const stepIndex = { date: 0, time: 1, details: 2, done: 3 }[step];
+  const stepIndex = { worker: 0, date: 1, time: 2, details: 3, done: 4 }[step];
 
   return (
     <section className="section booking reveal" id="booking">
       <div className="section-head">
-        <h2 className="section-title">לקביעת תור</h2>
+        <h2 className="section-title">קביעת תור</h2>
       </div>
 
       <div className="booking-card">
         {step !== 'done' && (
           <ol className="booking-steps" aria-label="שלבי הזמנה">
-            {['תאריך', 'שעה', 'פרטים'].map((label, i) => (
+            {['צוות', 'תאריך', 'שעה', 'פרטים'].map((label, i) => (
               <li
                 key={label}
                 className={i === stepIndex ? 'active' : i < stepIndex ? 'completed' : ''}
@@ -262,7 +265,30 @@ export default function BookingSection() {
 
         {error && <p className="booking-error" role="alert">{error}</p>}
 
-        {step === 'date' && <Calendar selected={date} onSelect={pickDate} />}
+        {step === 'worker' && (
+          <div className="worker-picker">
+            {WORKERS.map((w) => (
+              <button
+                type="button"
+                key={w}
+                className={`worker-card${worker === w ? ' worker-card--selected' : ''}`}
+                onClick={() => pickWorker(w)}
+              >
+                <span className="worker-card-sparkle" aria-hidden="true">✨</span>
+                <span className="worker-card-name">{w}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {step === 'date' && (
+          <>
+            <Calendar selected={date} onSelect={pickDate} />
+            <button type="button" className="btn-ghost" onClick={() => setStep('worker')}>
+              ← החלפת צוות
+            </button>
+          </>
+        )}
 
         {step === 'time' && date && (
           <div className="slot-picker">
@@ -353,6 +379,7 @@ export default function BookingSection() {
               {formatHebrewDate(date)}
               {' · '}<strong>{time}</strong>
             </p>
+            <p className="details-summary">המניקוריסטית שלך: <strong>{worker}</strong></p>
 
             <>
               <label className="field" htmlFor="booking-service">
@@ -452,7 +479,7 @@ export default function BookingSection() {
                 {!paymentEnabled && <span className="coming-soon-badge">בקרוב</span>}
               </button>
               <button type="button" className="btn-ghost btn-pay-inshop" onClick={reset}>
-                שלם במספרה
+                שלם בסטודיו
               </button>
             </div>
           </div>

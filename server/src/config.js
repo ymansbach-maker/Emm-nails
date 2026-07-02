@@ -6,6 +6,9 @@ export const TIMEZONE = 'Asia/Jerusalem';
 export const SLOT_MINUTES = 30;
 export const MAX_DAYS_AHEAD = 30;
 
+// Staff members — must mirror client/src/config.ts WORKERS.
+export const WORKERS = ['Emmy', 'Noa'];
+
 // Canonical service names — must mirror client/src/config.ts pricing[].name.
 // Duration rule: customise per service type as needed.
 export const SERVICES = [

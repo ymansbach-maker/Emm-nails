@@ -23,6 +23,7 @@ export interface Appointment {
   is_personal: number | null;    // 1 = admin personal block
   is_after_hours: number | null; // 1 = after-hours, time TBD
   paid: number | null;           // 1 = paid online
+  worker: string;
   created_at: string;
 }
 
@@ -30,6 +31,7 @@ export interface Block {
   id: number;
   date: string;
   time: string; // '' = whole day
+  worker: string;
 }
 
 export class ApiError extends Error {
@@ -50,8 +52,8 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   return body as T;
 }
 
-export function getAvailability(date: string): Promise<{ date: string; slots: Slot[] }> {
-  return request(`/api/b/${BUSINESS_SLUG}/availability?date=${date}`);
+export function getAvailability(date: string, worker: string): Promise<{ date: string; slots: Slot[] }> {
+  return request(`/api/b/${BUSINESS_SLUG}/availability?date=${date}&worker=${encodeURIComponent(worker)}`);
 }
 
 export function bookAppointment(data: {
@@ -62,6 +64,7 @@ export function bookAppointment(data: {
   email: string;
   service: string;
   duration: number;
+  worker: string;
 }): Promise<{ id: number }> {
   return request(`/api/b/${BUSINESS_SLUG}/book`, {
     method: 'POST',
@@ -134,6 +137,7 @@ export function adminCreateAppointment(data: {
   service: string | null;
   duration: number;
   is_personal: boolean;
+  worker: string;
 }): Promise<{ id: number; date: string; time: string; name: string }> {
   return request('/api/admin/appointments', {
     method: 'POST',
@@ -146,11 +150,11 @@ export function adminGetBlocks(): Promise<{ blocks: Block[] }> {
   return request('/api/admin/blocks', { headers: authHeaders() });
 }
 
-export function adminCreateBlock(date: string, time: string): Promise<Block> {
+export function adminCreateBlock(date: string, time: string, worker: string): Promise<Block> {
   return request('/api/admin/blocks', {
     method: 'POST',
     headers: authHeaders(),
-    body: JSON.stringify({ date, time }),
+    body: JSON.stringify({ date, time, worker }),
   });
 }
 

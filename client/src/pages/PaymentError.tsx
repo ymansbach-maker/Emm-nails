@@ -20,7 +20,7 @@ export default function PaymentError() {
             </Link>
           )}
           <Link to="/" className="btn-ghost">
-            שלם במספרה
+            שלם בסטודיו
           </Link>
         </div>
       </div>

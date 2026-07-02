@@ -117,7 +117,7 @@ export default function ReviewsSection() {
     <section className="section reveal" id="reviews">
       <div className="section-head">
         <p className="section-kicker">מה אומרים הלקוחות</p>
-        <h2 className="section-title">ביקורות</h2>
+        <h2 className="section-title">מה אומרות הלקוחות</h2>
       </div>
 
       {justSubmitted && (

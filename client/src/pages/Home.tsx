@@ -41,7 +41,7 @@ export default function Home() {
       <footer className="footer">
         <span className="footer-logo">{config.business_name}</span>
         <span className="footer-note">{config.address}</span>
-        <span className="footer-note">© {new Date().getFullYear()} כל הזכויות שמורות</span>
+        <span className="footer-note">{config.business_name} © {new Date().getFullYear()}</span>
         <Link to="/accessibility" className="footer-a11y-link">הצהרת נגישות</Link>
       </footer>
     </main>

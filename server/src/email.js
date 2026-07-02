@@ -40,7 +40,7 @@ function baseLayout(content) {
 </html>`;
 }
 
-function confirmationHtml({ name, date, time }) {
+function confirmationHtml({ name, date, time, worker }) {
   return baseLayout(`
     <p style="margin:0 0 6px;color:#888888;font-size:14px;">שלום ${name},</p>
     <h1 style="margin:0 0 24px;font-size:22px;font-weight:700;color:#e8e8e8;">התור שלך אושר בהצלחה! ✅</h1>
@@ -48,6 +48,7 @@ function confirmationHtml({ name, date, time }) {
       <tr><td style="background:#0f0f16;border:1px solid #2a9db5;border-radius:8px;padding:16px 20px;">
         <p style="margin:0 0 4px;color:#888888;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;">תאריך ושעה</p>
         <p style="margin:0;color:#2a9db5;font-size:20px;font-weight:700;">${date} &nbsp;·&nbsp; ${time}</p>
+        <p style="margin:8px 0 0;color:#888888;font-size:13px;">המניקוריסטית שלך: <strong style="color:#e8e8e8;">${worker}</strong></p>
       </td></tr>
     </table>
     <p style="margin:24px 0 0;font-size:16px;color:#e8e8e8;">נתראה ב-${business_name} 💈</p>
@@ -72,13 +73,13 @@ function cancellationHtml({ name, date, time, bookingUrl }) {
   `);
 }
 
-export async function sendConfirmationEmail({ email, name, date, time }) {
+export async function sendConfirmationEmail({ email, name, date, time, worker }) {
   if (!resend) { console.warn('RESEND_API_KEY not set — skipping confirmation email'); return; }
   await resend.emails.send({
     from: FROM,
     to: email,
     subject: `אישור תור — ${business_name}`,
-    html: confirmationHtml({ name, date: formatDate(date), time }),
+    html: confirmationHtml({ name, date: formatDate(date), time, worker }),
   });
 }
 

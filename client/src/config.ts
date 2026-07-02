@@ -2,10 +2,13 @@
 // Client configuration — edit this file to deploy for a new client.
 // ============================================================
 
+// Staff members — must mirror server/src/config.js WORKERS.
+export const WORKERS = ['Emmy', 'Noa'] as const;
+
 export const config = {
   business_name: 'Emm Nails',
-  tagline: 'אומנות. איכות. יוקרה',
-  hero_badge: 'סוג העסק',
+  tagline: 'יופי מדויק. חוויה בלתי נשכחת.',
+  hero_badge: 'סטודיו לציפורניים',
   phone: '050-1234567',
   whatsapp_number: '972501234567',
   instagram: 'Emm.Nails',
@@ -23,13 +26,13 @@ export const config = {
   max_days_ahead: 30,
 
   colors: {
-    bg:         '#0a0a0f',
-    surface:    '#13131a',
-    border:     '#1e1e2e',
-    primary:    '#8a2be2',
-    secondary:  '#000000',
-    text:       '#ffffff',
-    text_muted: '#aaaaaa',
+    bg:         '#0d0d0d',
+    surface:    '#1a1a2e',
+    border:     '#2d1b69',
+    primary:    '#7B2FBE',
+    secondary:  '#C084FC',
+    text:       '#F5F0FF',
+    text_muted: '#9d8ec7',
   },
 
   pricing: [
